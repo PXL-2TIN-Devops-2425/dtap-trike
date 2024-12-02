@@ -2,9 +2,9 @@ pipeline {
     agent any
   
     stages {
-        stage ('test'){
+        stage ('cleanup'){
             steps{
-                sh 'ls'
+                sh 'rm -rf *'
             }
         }
         stage('fetch app code') {
