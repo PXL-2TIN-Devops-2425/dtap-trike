@@ -1,9 +1,57 @@
 pipeline {
     agent any
+    environment {
+        DOCKER_IMAGE = 'jorgeweverspxl/nodejs-app-devops:latest'
+        PRODUCTION_SERVER_IP = '54.162.5.24'
+        SSH_CREDENTIAL_ID = 'ubuntu'
+    }
     stages {
-        stage('dtap production') {
+        stage ('Cleanup') {
             steps {
-                echo "good luck..."
+                sh 'rm -rf *'
+            }
+        }
+        stage('Deploy Prod') {
+            steps {
+                sh """
+                    mkdir -p ~/.ssh
+                    ssh-keyscan -H $PRODUCTION_SERVER_IP >> ~/.ssh/known_hosts
+                """
+                sshagent([SSH_CREDENTIAL_ID]) {
+                    sh """
+                    ssh ubuntu@$PRODUCTION_SERVER_IP "
+                    docker pull $DOCKER_IMAGE && \
+                    if docker ps -a --format '{{.Names}}' | grep -q 'nodejs-app-devops'; then \
+                        docker stop nodejs-app-devops && \
+                        docker rm nodejs-app-devops; \
+                    fi
+                    "
+                    """
+                }
+            }
+        }
+
+        stage('Start Prod') {
+            steps {
+                sshagent([SSH_CREDENTIAL_ID]) {
+                    sh """
+                    ssh ubuntu@$PRODUCTION_SERVER_IP "
+                    docker run -d -p 80:3000 --name nodejs-app-devops $DOCKER_IMAGE
+                    "
+                    """
+                }
+            }
+        }
+
+        stage('Test Prod') {
+            steps {
+                sshagent([SSH_CREDENTIAL_ID]) {
+                    sh """
+                    ssh ubuntu@$PRODUCTION_SERVER_IP "
+                    curl -s -o /dev/null -w '%{http_code}' http://localhost/ | grep 200 || exit 1
+                    "
+                    """
+                }
             }
         }
     }
