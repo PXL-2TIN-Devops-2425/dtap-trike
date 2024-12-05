@@ -2,5 +2,7 @@ Vul onderstaande aan met de antwoorden op de vragen uit de readme.md file. Wil j
 opmaak met Markdown.
 
 a)
+# Rechten geven aan docker in jenkins
+sudo chmod 666 /var/run/docker.sock
 
 b)

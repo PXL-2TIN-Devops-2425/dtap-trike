@@ -4,11 +4,10 @@ pipeline {
     tools {
         nodejs 'testenvnode'
     }
-  
     stages {
-        stage ('cleanup'){
-            steps{
-                sh 'rm -rf *'
+        stage('Cleanup') {
+            steps {
+                sh'rm -rf *'
             }
         }
         stage('fetch app code') {
@@ -17,9 +16,22 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
             }
         }
-        stage ("Install dependencies") {
+        stage ('Install dependencies') {
             steps {
                 sh 'npm install'
+            }
+        }
+        stage('Build Artifact') {
+            steps {
+                script {
+                    sh 'docker pull jorgeweverspxl/nodejs-app-devops'
+        
+                    sh '''
+                    docker build \
+                        -t my-nodejs-app:latest \
+                        -f Dockerfile .
+                    '''
+                }
             }
         }
     }
