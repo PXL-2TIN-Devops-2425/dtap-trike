@@ -1,10 +1,13 @@
 pipeline {
     agent any
-  
+
+    tools {
+        nodejs 'testenvnode'
+    }
     stages {
-        stage ('cleanup'){
-            steps{
-                // TODO
+        stage('Cleanup') {
+            steps {
+                sh 'rm -rf *'
             }
         }
         stage('fetch app code') {
@@ -13,5 +16,52 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/PXL-2TIN-DevOps-Resources/calculator-app-finished.git'
             }
         }
+        stage ('Install dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Build Artifact') {
+            steps {
+                script {
+                    sh 'docker pull jorgeweverspxl/nodejs-app-devops'
+        
+                    sh '''
+                    docker build \
+                        -t my-nodejs-app:latest \
+                        -f Dockerfile .
+                    '''
+                }
+            }
+        }
+        stage('Push artifact') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'DOCKERHUB_PSW', usernameVariable: 'DOCKERHUB_USR')]) {
+                    script {
+                        sh '''
+                        echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin docker.io
+                        docker tag my-nodejs-app:latest $DOCKERHUB_USR/nodejs-app-devops:latest
+                        docker push $DOCKERHUB_USR/nodejs-app-devops:latest
+                        '''
+                    }
+                }
+            }
+        }
+        stage('deployment') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'DOCKERHUB_PSW', usernameVariable: 'DOCKERHUB_USR')]) {
+                    script {
+                        sh '''
+                        docker ps -q --filter "name=nodejs-app-devops" | xargs -r docker stop
+                        docker ps -a -q --filter "name=nodejs-app-devops" | xargs -r docker rm
+                        docker run -d -p 3000:3000 --name nodejs-app-devops "$DOCKERHUB_USR/nodejs-app-devops:latest"
+                        '''
+                    }
+                }
+            }
+        }
     }
 }
+
+
+
