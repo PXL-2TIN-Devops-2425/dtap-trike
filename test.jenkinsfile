@@ -7,7 +7,7 @@ pipeline {
     stages {
         stage('Cleanup') {
             steps {
-                sh'rm -rf *'
+                sh 'rm -rf *'
             }
         }
         stage('fetch app code') {
@@ -31,6 +31,32 @@ pipeline {
                         -t my-nodejs-app:latest \
                         -f Dockerfile .
                     '''
+                }
+            }
+        }
+        stage('Push artifact') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'DOCKERHUB_PSW', usernameVariable: 'DOCKERHUB_USR')]) {
+                    script {
+                        sh '''
+                        echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin docker.io
+                        docker tag my-nodejs-app:latest $DOCKERHUB_USR/nodejs-app-devops:latest
+                        docker push $DOCKERHUB_USR/nodejs-app-devops:latest
+                        '''
+                    }
+                }
+            }
+        }
+        stage('deployment') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'DOCKERHUB_PSW', usernameVariable: 'DOCKERHUB_USR')]) {
+                    script {
+                        sh '''
+                        docker ps -q --filter "name=nodejs-app-devops" | xargs -r docker stop
+                        docker ps -a -q --filter "name=nodejs-app-devops" | xargs -r docker rm
+                        docker run -d -p 3000:3000 --name nodejs-app-devops "$DOCKERHUB_USR/nodejs-app-devops:latest"
+                        '''
+                    }
                 }
             }
         }
